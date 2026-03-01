@@ -11,64 +11,64 @@ db = SessionLocal()
 # ============ PRODUSE ============
 produse = [
     # Lactate
-    Product(name="Lapte", category="Lactate", unit="litri"),
-    Product(name="Branza", category="Lactate", unit="kg"),
-    Product(name="Unt", category="Lactate", unit="kg"),
-    Product(name="Smantana", category="Lactate", unit="kg"),
-    Product(name="Iaurt", category="Lactate", unit="bucati"),
-    Product(name="Oua", category="Lactate", unit="bucati"),
+    Product(name="Lapte", category="Lactate", unit="litri", avg_price=18),
+    Product(name="Branza", category="Lactate", unit="kg", avg_price=90),
+    Product(name="Unt", category="Lactate", unit="kg", avg_price=120),
+    Product(name="Smantana", category="Lactate", unit="kg", avg_price=45),
+    Product(name="Iaurt", category="Lactate", unit="bucati", avg_price=12),
+    Product(name="Oua", category="Lactate", unit="bucati", avg_price=3),
 
-    # Paine si Patiserie
-    Product(name="Paine alba", category="Paine", unit="bucati"),
-    Product(name="Paine neagra", category="Paine", unit="bucati"),
-    Product(name="Chifle", category="Paine", unit="bucati"),
+    # Paine
+    Product(name="Paine alba", category="Paine", unit="bucati", avg_price=8),
+    Product(name="Paine neagra", category="Paine", unit="bucati", avg_price=9),
+    Product(name="Chifle", category="Paine", unit="bucati", avg_price=3),
 
     # Carne
-    Product(name="Piept de pui", category="Carne", unit="kg"),
-    Product(name="Carne de porc", category="Carne", unit="kg"),
-    Product(name="Carne de vita", category="Carne", unit="kg"),
-    Product(name="Carnati", category="Carne", unit="kg"),
-    Product(name="Peste", category="Carne", unit="kg"),
+    Product(name="Piept de pui", category="Carne", unit="kg", avg_price=75),
+    Product(name="Carne de porc", category="Carne", unit="kg", avg_price=95),
+    Product(name="Carne de vita", category="Carne", unit="kg", avg_price=130),
+    Product(name="Carnati", category="Carne", unit="kg", avg_price=85),
+    Product(name="Peste", category="Carne", unit="kg", avg_price=80),
 
     # Legume
-    Product(name="Cartofi", category="Legume", unit="kg"),
-    Product(name="Rosii", category="Legume", unit="kg"),
-    Product(name="Castraveti", category="Legume", unit="kg"),
-    Product(name="Ceapa", category="Legume", unit="kg"),
-    Product(name="Usturoi", category="Legume", unit="kg"),
-    Product(name="Morcovi", category="Legume", unit="kg"),
-    Product(name="Varza", category="Legume", unit="kg"),
+    Product(name="Cartofi", category="Legume", unit="kg", avg_price=8),
+    Product(name="Rosii", category="Legume", unit="kg", avg_price=20),
+    Product(name="Castraveti", category="Legume", unit="kg", avg_price=15),
+    Product(name="Ceapa", category="Legume", unit="kg", avg_price=7),
+    Product(name="Usturoi", category="Legume", unit="kg", avg_price=30),
+    Product(name="Morcovi", category="Legume", unit="kg", avg_price=8),
+    Product(name="Varza", category="Legume", unit="kg", avg_price=6),
 
     # Fructe
-    Product(name="Mere", category="Fructe", unit="kg"),
-    Product(name="Banane", category="Fructe", unit="kg"),
-    Product(name="Portocale", category="Fructe", unit="kg"),
+    Product(name="Mere", category="Fructe", unit="kg", avg_price=18),
+    Product(name="Banane", category="Fructe", unit="kg", avg_price=22),
+    Product(name="Portocale", category="Fructe", unit="kg", avg_price=25),
 
-    # Cereale si Paste
-    Product(name="Paste fainoase", category="Cereale", unit="kg"),
-    Product(name="Orez", category="Cereale", unit="kg"),
-    Product(name="Hrisca", category="Cereale", unit="kg"),
-    Product(name="Faina", category="Cereale", unit="kg"),
-    Product(name="Fulgi de ovaz", category="Cereale", unit="kg"),
+    # Cereale
+    Product(name="Paste fainoase", category="Cereale", unit="kg", avg_price=20),
+    Product(name="Orez", category="Cereale", unit="kg", avg_price=18),
+    Product(name="Hrisca", category="Cereale", unit="kg", avg_price=25),
+    Product(name="Faina", category="Cereale", unit="kg", avg_price=12),
+    Product(name="Fulgi de ovaz", category="Cereale", unit="kg", avg_price=22),
 
-    # Conserve si Altele
-    Product(name="Ulei", category="Altele", unit="litri"),
-    Product(name="Zahar", category="Altele", unit="kg"),
-    Product(name="Sare", category="Altele", unit="kg"),
-    Product(name="Maioneza", category="Altele", unit="bucati"),
-    Product(name="Ketchup", category="Altele", unit="bucati"),
+    # Altele
+    Product(name="Ulei", category="Altele", unit="litri", avg_price=35),
+    Product(name="Zahar", category="Altele", unit="kg", avg_price=15),
+    Product(name="Sare", category="Altele", unit="kg", avg_price=5),
+    Product(name="Maioneza", category="Altele", unit="bucati", avg_price=28),
+    Product(name="Ketchup", category="Altele", unit="bucati", avg_price=25),
 
     # Bauturi
-    Product(name="Apa plata", category="Bauturi", unit="litri"),
-    Product(name="Suc de portocale", category="Bauturi", unit="litri"),
-    Product(name="Ceai", category="Bauturi", unit="bucati"),
-    Product(name="Cafea", category="Bauturi", unit="bucati"),
+    Product(name="Apa plata", category="Bauturi", unit="litri", avg_price=8),
+    Product(name="Suc de portocale", category="Bauturi", unit="litri", avg_price=30),
+    Product(name="Ceai", category="Bauturi", unit="bucati", avg_price=25),
+    Product(name="Cafea", category="Bauturi", unit="bucati", avg_price=55),
 
     # Igiena
-    Product(name="Sampon", category="Igiena", unit="bucati"),
-    Product(name="Sapun", category="Igiena", unit="bucati"),
-    Product(name="Pasta de dinti", category="Igiena", unit="bucati"),
-    Product(name="Hartie igienica", category="Igiena", unit="bucati"),
+    Product(name="Sampon", category="Igiena", unit="bucati", avg_price=45),
+    Product(name="Sapun", category="Igiena", unit="bucati", avg_price=12),
+    Product(name="Pasta de dinti", category="Igiena", unit="bucati", avg_price=30),
+    Product(name="Hartie igienica", category="Igiena", unit="bucati", avg_price=8),
 ]
 
 db.add_all(produse)

@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 from handlers.start import get_conversation_handler, afiseaza_meniu, get_reply_keyboard
 from handlers.lista import lista, callback_lista, primeste_cantitate
 from handlers.stoc import stoc, callback_stoc, primeste_cantitate_stoc
+from scheduler import porneste_scheduler
+from handlers.buget import buget_command, callback_buget
 import os
 
 load_dotenv()
@@ -27,7 +29,8 @@ async def ajutor(update, context):
     )
 
 async def buget(update, context):
-    from database import SessionLocal
+    await buget_command(update, context)
+    # from database import SessionLocal
     from models.user import User
     db = SessionLocal()
     user = db.query(User).filter_by(telegram_id=update.effective_user.id).first()
@@ -59,7 +62,7 @@ async def router_text(update, context):
         await stoc(update, context)
         return
     elif text == "💰 Buget":
-        await buget(update, context)
+        await buget_command(update, context)
         return
 
     # Cantitati
@@ -105,14 +108,35 @@ async def router_callback(update, context):
         await stoc_din_meniu(update, context)
     elif data == "meniu_buget":
         await update.callback_query.answer()
-        await buget_inline(update, context)
+        from database import SessionLocal
+        from models.user import User
+        from handlers.buget import afiseaza_meniu_buget
+        db = SessionLocal()
+        user = db.query(User).filter_by(telegram_id=update.callback_query.from_user.id).first()
+        db.close()
+        await afiseaza_meniu_buget(update.callback_query, user, edit=True)
+    elif data.startswith("buget_") or data == "buget_raport_direct":
+        if data == "buget_raport_direct":
+            # Redirect catre raport direct din ecranul de finalizare
+            from handlers.buget import afiseaza_raport_lunar
+            from database import SessionLocal
+            from models.user import User
+            db = SessionLocal()
+            user = db.query(User).filter_by(
+                telegram_id=update.callback_query.from_user.id
+            ).first()
+            db.close()
+            await update.callback_query.answer()
+            await afiseaza_raport_lunar(update.callback_query, user)
+        else:
+            await callback_buget(update, context)
     elif data == "meniu_ajutor":
         await update.callback_query.answer()
         await update.callback_query.edit_message_text(
             "❓ *Ajutor ShopBot*\n\n"
-            "🛒 *Lista* — seteaza cantitatile dorite si vezi ce trebuie sa cumperi\n"
-            "📦 *Stoc* — actualizeaza ce ai acasa in prezent\n"
-            "💰 *Buget* — seteaza bugetul lunar pentru cumparaturi\n\n"
+            "/lista *Lista* — seteaza cantitatile dorite si vezi ce trebuie sa cumperi\n"
+            "/stoc *Stoc* — actualizeaza ce ai acasa in prezent\n"
+            "/buget *Buget* — seteaza bugetul lunar pentru cumparaturi\n\n"
             "Foloseste butoanele de jos pentru navigare rapida!",
             parse_mode="Markdown",
             reply_markup=__import__('telegram').InlineKeyboardMarkup([
@@ -192,7 +216,12 @@ def main():
     app.add_handler(CallbackQueryHandler(router_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, router_text))
 
-    print("✅ ShopBot pornit! Apasa Ctrl+C pentru a opri.")
+    async def post_init(application):
+        porneste_scheduler(application.bot)
+
+    app.post_init = post_init
+    print("✅ ShopBot pornit cu notificari automate! Apasa Ctrl+C pentru a opri.")
+
     app.run_polling()
 
 if __name__ == "__main__":

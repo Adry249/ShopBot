@@ -3,6 +3,7 @@ from telegram.ext import ContextTypes
 from database import SessionLocal
 from models.product import Product, UserProduct
 from models.user import User
+from datetime import datetime
 
 # ── Meniu principal ──
 async def afiseaza_meniu_principal(target, edit=False):
@@ -92,15 +93,21 @@ async def afiseaza_lista_finala_cu_cos(query, context, db):
 
     text = ""
     butoane = []
-
+    
     if de_cumparat:
         text += "🧾 *De cumparat:*\n"
         for up, prod, cant in de_cumparat:
             text += f"• {prod.name} — {round(cant, 2)} {prod.unit}\n"
-            butoane.append([InlineKeyboardButton(
-                f"🛒 {prod.name} in cos",
-                callback_data=f"cos_adauga_{up.id}"
-            )])
+            butoane.append([
+                InlineKeyboardButton(
+                    f"🛒 {prod.name} in cos",
+                    callback_data=f"cos_adauga_{up.id}"
+                ),
+                InlineKeyboardButton(
+                    f"🗑️ {prod.name} sterge",
+                    callback_data=f"dorita_sterge_{up.id}"
+                )
+            ])
 
     if in_cos:
         text += "\n🛒 *Cosul tau:*\n"
@@ -218,7 +225,6 @@ async def callback_lista(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 db.commit()
             await afiseaza_lista_finala_cu_cos(query, context, db)
 
-#aaaaaaaaaaaaaa
         elif query.data == "cos_finalizeaza":
             user = db.query(User).filter_by(telegram_id=query.from_user.id).first()
             produse_cos = db.query(UserProduct, Product)\
@@ -226,40 +232,68 @@ async def callback_lista(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 .filter(UserProduct.user_id == user.id, UserProduct.in_cart == 1)\
                 .all()
 
-            text = "🎉 *Cumparaturi finalizate!*\n\n*Produse cumparate:*\n"
+            # ── Înregistrează în istoricul de cumpărături ──
+            from handlers.buget import inregistreaza_cumparaturi
+            await inregistreaza_cumparaturi(user.id, produse_cos, db)
+
+            text = "🎉 *Cumpărături finalizate!*\n\n*Produse cumpărate:*\n"
+            total_cheltuit = 0
+
             for up, prod in produse_cos:
                 diferenta = (up.desired_quantity or 0) - (up.quantity or 0)
                 if diferenta > 0:
+                    pret = diferenta * (prod.avg_price or 0)
+                    total_cheltuit += pret
                     up.quantity = up.desired_quantity
                     up.in_cart = 0
-                    text += f"✅ {prod.name} — stoc actualizat la {up.desired_quantity} {prod.unit}\n"
+                    text += f"✅ {prod.name} — {round(diferenta, 1)} {prod.unit}"
+                    if pret > 0:
+                        text += f" (~{round(pret)} lei)"
+                    text += "\n"
+
             db.commit()
 
-            # Verificam daca au ramas produse necumparate
+            if total_cheltuit > 0:
+                text += f"\n💰 *Total estimat: ~{round(total_cheltuit)} lei*"
+
+            # Verificam bugetul ramas
+            from sqlalchemy import func, extract
+            from models.product import PurchaseHistory
+            luna = datetime.now().month
+            an = datetime.now().year
+            total_luna = db.query(func.sum(PurchaseHistory.total_price))\
+                .filter(
+                    PurchaseHistory.user_id == user.id,
+                    extract('month', PurchaseHistory.purchased_at) == luna,
+                    extract('year', PurchaseHistory.purchased_at) == an
+                ).scalar() or 0
+
+            if user.monthly_budget and user.monthly_budget > 0:
+                ramas = user.monthly_budget - total_luna
+                if ramas >= 0:
+                    text += f"\n💚 *Buget rămas: {round(ramas)} lei*"
+                else:
+                    text += f"\n🔴 *Buget depășit cu {round(abs(ramas))} lei!*"
+
             ramase = db.query(UserProduct, Product)\
                 .join(Product, UserProduct.product_id == Product.id)\
                 .filter(UserProduct.user_id == user.id)\
                 .all()
 
-            produse_ramase = []
-            for up, prod in ramase:
-                diferenta = (up.desired_quantity or 0) - (up.quantity or 0)
-                if diferenta > 0:
-                    produse_ramase.append((prod.name, diferenta, prod.unit))
+            produse_ramase = [(p.name, (up.desired_quantity or 0) - (up.quantity or 0), p.unit)
+            for up, p in ramase
+                if (up.desired_quantity or 0) - (up.quantity or 0) > 0]
 
-            text += "\n📦 *Stocul de acasa a fost actualizat automat!*"
-
+            text += "\n\n📦 *Stocul de acasă a fost actualizat automat!*"
             if produse_ramase:
-                text += f"\n\n⚠️ *Ai {len(produse_ramase)} produs(e) ramase de cumparat!*"
+                text += f"\n⚠️ *Ai {len(produse_ramase)} produs(e) rămase de cumpărat!*"
 
             butoane = []
             if produse_ramase:
-                butoane.append([InlineKeyboardButton(
-                    "🔍 Vezi ce a ramas de cumparat",
-                    callback_data="vezi_ramase"
-                )])
-            butoane.append([InlineKeyboardButton("🛒 Lista noua", callback_data="stoc_actualizat_da")])
-            butoane.append([InlineKeyboardButton("🏠 Meniu principal", callback_data="meniu_principal")])
+                butoane.append([InlineKeyboardButton("🔍 Vezi ce a rămas", callback_data="vezi_ramase")])
+                butoane.append([InlineKeyboardButton("📊 Vezi raport buget", callback_data="buget_raport_direct")])
+                butoane.append([InlineKeyboardButton("🛒 Listă nouă", callback_data="stoc_actualizat_da")])
+                butoane.append([InlineKeyboardButton("🏠 Meniu principal", callback_data="meniu_principal")])
 
             await query.edit_message_text(
                 text, parse_mode="Markdown",
@@ -297,6 +331,14 @@ async def callback_lista(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=InlineKeyboardMarkup(butoane)
             )
             
+        elif query.data.startswith("dorita_sterge_"):
+            up_id = int(query.data.replace("dorita_sterge_", ""))
+            up = db.query(UserProduct).filter_by(id=up_id).first()
+            if up:
+                up.desired_quantity = 0
+                up.in_cart = 0
+                db.commit()
+            await afiseaza_lista_finala_cu_cos(query, context, db)
             
 
     finally:

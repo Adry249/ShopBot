@@ -3,6 +3,7 @@ from telegram.ext import ContextTypes
 from database import SessionLocal
 from models.product import Product, UserProduct
 from models.user import User
+from datetime import datetime
 
 async def stoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await afiseaza_categorii_stoc_msg(update, context)
@@ -25,6 +26,7 @@ async def afiseaza_categorii_stoc_msg(update, context):
             "✅ Gata, mergi la lista de cumparaturi",
             callback_data="stoc_gata"
         )])
+    butoane.append([InlineKeyboardButton("🏠 Meniu principal", callback_data="meniu_principal")])
 
     keyboard = InlineKeyboardMarkup(butoane)
     await update.message.reply_text(
@@ -51,6 +53,7 @@ async def afiseaza_categorii_stoc_edit(query, context):
             "✅ Gata, mergi la lista de cumparaturi",
             callback_data="stoc_gata"
         )])
+    butoane.append([InlineKeyboardButton("🏠 Meniu principal", callback_data="meniu_principal")])
 
     keyboard = InlineKeyboardMarkup(butoane)
     await query.edit_message_text(
@@ -73,7 +76,7 @@ async def callback_stoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "stoc_inapoi_categorii":
         db.close()
         await afiseaza_categorii_stoc_edit(query, context)
-        return#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        return
     elif query.data.startswith("stoc_goleste_"):
         categorie = query.data.replace("stoc_goleste_", "")
         user = db.query(User).filter_by(telegram_id=query.from_user.id).first()
@@ -227,6 +230,8 @@ async def callback_stoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     "✅ Gata, mergi la lista de cumparaturi",
                     callback_data="stoc_gata"
                 )])
+                
+            butoane.append([InlineKeyboardButton("🏠 Meniu principal", callback_data="meniu_principal")])
 
             keyboard = InlineKeyboardMarkup(butoane)
             await query.edit_message_text(text, parse_mode="Markdown", reply_markup=keyboard)
@@ -275,7 +280,7 @@ async def primeste_cantitate_stoc(update: Update, context: ContextTypes.DEFAULT_
     existent = db.query(UserProduct).filter_by(
         user_id=user.id, product_id=product_id
     ).first()
-
+    
     if existent:
         existent.quantity = cantitate
     else:
@@ -285,7 +290,9 @@ async def primeste_cantitate_stoc(update: Update, context: ContextTypes.DEFAULT_
             min_quantity=1.0, is_on_list=0
         ))
 
+    user.last_stock_update = datetime.now()
     db.commit()
+    
 
     del context.user_data["stoc_product_id"]
     del context.user_data["stoc_product_name"]
@@ -315,6 +322,8 @@ async def primeste_cantitate_stoc(update: Update, context: ContextTypes.DEFAULT_
             "✅ Gata, mergi la lista de cumparaturi",
             callback_data="stoc_gata"
         )])
+        
+    butoane.append([InlineKeyboardButton("🏠 Meniu principal", callback_data="meniu_principal")])
 
     keyboard = InlineKeyboardMarkup(butoane)
     await update.message.reply_text(
