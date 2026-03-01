@@ -3,6 +3,7 @@ from database import Base
 
 class Product(Base):
     __tablename__ = "products"
+    __table_args__ = {'extend_existing': True}
     
     id = Column(Integer, primary_key=True)
     name = Column(String(200), nullable=False)
@@ -11,6 +12,7 @@ class Product(Base):
 
 class UserProduct(Base):
     __tablename__ = "user_products"
+    __table_args__ = {'extend_existing': True}
     
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"))
@@ -19,4 +21,5 @@ class UserProduct(Base):
     desired_quantity = Column(Float, default=0) # cantitatea dorita
     min_quantity = Column(Float, default=1)
     is_on_list = Column(Integer, default=0)
+    in_cart = Column(Integer, default=0)
     added_at = Column(DateTime, default=func.now())

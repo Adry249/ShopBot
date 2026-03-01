@@ -55,25 +55,72 @@ async def afiseaza_categorii_dorite(target, context, db):
     )
 
 # ── Afiseaza categorii stoc (din lista) ──
-async def afiseaza_categorii_stoc_din_lista(target, context, db):
-    categorii = db.query(Product.category).distinct().all()
-    categorii = [c[0] for c in categorii]
+async def afiseaza_lista_finala_cu_cos(query, context, db):
+    user = db.query(User).filter_by(telegram_id=query.from_user.id).first()
 
+    if not user:
+        await query.edit_message_text("❌ Nu esti inregistrat. Trimite /start.")
+        return
+
+    toate = db.query(UserProduct, Product)\
+        .join(Product, UserProduct.product_id == Product.id)\
+        .filter(UserProduct.user_id == user.id)\
+        .all()
+
+    de_cumparat = []
+    in_cos = []
+
+    for up, prod in toate:
+        diferenta = (up.desired_quantity or 0) - (up.quantity or 0)
+        if diferenta > 0:
+            if up.in_cart == 1:
+                in_cos.append((up, prod, diferenta))
+            else:
+                de_cumparat.append((up, prod, diferenta))
+
+    if not de_cumparat and not in_cos:
+        butoane = [
+            [InlineKeyboardButton("🔙 Inapoi la lista dorita", callback_data="dorita_inapoi")],
+            [InlineKeyboardButton("🏠 Meniu principal", callback_data="meniu_principal")]
+        ]
+        await query.edit_message_text(
+            "🎉 *Nu ai nevoie sa cumperi nimic!*\n\nStocul tau acopera tot ce doresti.",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(butoane)
+        )
+        return
+
+    text = ""
     butoane = []
-    for categorie in categorii:
+
+    if de_cumparat:
+        text += "🧾 *De cumparat:*\n"
+        for up, prod, cant in de_cumparat:
+            text += f"• {prod.name} — {round(cant, 2)} {prod.unit}\n"
+            butoane.append([InlineKeyboardButton(
+                f"🛒 {prod.name} in cos",
+                callback_data=f"cos_adauga_{up.id}"
+            )])
+
+    if in_cos:
+        text += "\n🛒 *Cosul tau:*\n"
+        for up, prod, cant in in_cos:
+            text += f"✅ {prod.name} — {round(cant, 2)} {prod.unit}\n"
+            butoane.append([InlineKeyboardButton(
+                f"↩️ Scoate {prod.name} din cos",
+                callback_data=f"cos_scoate_{up.id}"
+            )])
         butoane.append([InlineKeyboardButton(
-            f"📦 {categorie}",
-            callback_data=f"stoc_cat_{categorie}"
+            "🏁 Am finalizat cumparaturile!",
+            callback_data="cos_finalizeaza"
         )])
-    butoane.append([InlineKeyboardButton("✅ Gata, mergi la lista dorita", callback_data="stoc_gata")])
+
+    butoane.append([InlineKeyboardButton("🔙 Inapoi la lista dorita", callback_data="dorita_inapoi")])
     butoane.append([InlineKeyboardButton("🏠 Meniu principal", callback_data="meniu_principal")])
 
-    keyboard = InlineKeyboardMarkup(butoane)
-    await target.edit_message_text(
-        "📦 *Stocul de acasa*\n\nActualizeaza ce ai acasa, apoi apasa Gata:",
-        reply_markup=keyboard,
-        parse_mode="Markdown"
-    )
+    await query.edit_message_text(text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(butoane)
+
+)
 
 # ── Handler principal pentru toate callback-urile listei ──
 async def callback_lista(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -153,37 +200,104 @@ async def callback_lista(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # ── Lista finala ──
         elif query.data == "vezi_lista_finala":
-            user = db.query(User).filter_by(telegram_id=query.from_user.id).first()
+            await afiseaza_lista_finala_cu_cos(query, context, db)
 
-            if not user:
-                await query.edit_message_text("❌ Nu esti inregistrat. Trimite /start.")
-                return
+        elif query.data.startswith("cos_adauga_"):
+            up_id = int(query.data.replace("cos_adauga_", ""))
+            up = db.query(UserProduct).filter_by(id=up_id).first()
+            if up:
+                up.in_cart = 1
+                db.commit()
+            await afiseaza_lista_finala_cu_cos(query, context, db)
+
+        elif query.data.startswith("cos_scoate_"):
+            up_id = int(query.data.replace("cos_scoate_", ""))
+            up = db.query(UserProduct).filter_by(id=up_id).first()
+            if up:
+                up.in_cart = 0
+                db.commit()
+            await afiseaza_lista_finala_cu_cos(query, context, db)
+
+#aaaaaaaaaaaaaa
+        elif query.data == "cos_finalizeaza":
+            user = db.query(User).filter_by(telegram_id=query.from_user.id).first()
+            produse_cos = db.query(UserProduct, Product)\
+                .join(Product, UserProduct.product_id == Product.id)\
+                .filter(UserProduct.user_id == user.id, UserProduct.in_cart == 1)\
+                .all()
+
+            text = "🎉 *Cumparaturi finalizate!*\n\n*Produse cumparate:*\n"
+            for up, prod in produse_cos:
+                diferenta = (up.desired_quantity or 0) - (up.quantity or 0)
+                if diferenta > 0:
+                    up.quantity = up.desired_quantity
+                    up.in_cart = 0
+                    text += f"✅ {prod.name} — stoc actualizat la {up.desired_quantity} {prod.unit}\n"
+            db.commit()
+
+            # Verificam daca au ramas produse necumparate
+            ramase = db.query(UserProduct, Product)\
+                .join(Product, UserProduct.product_id == Product.id)\
+                .filter(UserProduct.user_id == user.id)\
+                .all()
+
+            produse_ramase = []
+            for up, prod in ramase:
+                diferenta = (up.desired_quantity or 0) - (up.quantity or 0)
+                if diferenta > 0:
+                    produse_ramase.append((prod.name, diferenta, prod.unit))
+
+            text += "\n📦 *Stocul de acasa a fost actualizat automat!*"
+
+            if produse_ramase:
+                text += f"\n\n⚠️ *Ai {len(produse_ramase)} produs(e) ramase de cumparat!*"
+
+            butoane = []
+            if produse_ramase:
+                butoane.append([InlineKeyboardButton(
+                    "🔍 Vezi ce a ramas de cumparat",
+                    callback_data="vezi_ramase"
+                )])
+            butoane.append([InlineKeyboardButton("🛒 Lista noua", callback_data="stoc_actualizat_da")])
+            butoane.append([InlineKeyboardButton("🏠 Meniu principal", callback_data="meniu_principal")])
+
+            await query.edit_message_text(
+                text, parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup(butoane)
+            )
+
+        elif query.data == "vezi_ramase":
+            user = db.query(User).filter_by(telegram_id=query.from_user.id).first()
 
             toate = db.query(UserProduct, Product)\
                 .join(Product, UserProduct.product_id == Product.id)\
                 .filter(UserProduct.user_id == user.id)\
                 .all()
 
-            lista_finala = []
+            produse_ramase = []
             for up, prod in toate:
                 diferenta = (up.desired_quantity or 0) - (up.quantity or 0)
                 if diferenta > 0:
-                    lista_finala.append((prod.name, diferenta, prod.unit))
+                    produse_ramase.append((up, prod, diferenta))
 
-            if not lista_finala:
-                text = "🎉 *Nu ai nevoie sa cumperi nimic!*\n\nStocul tau acopera tot ce doresti."
-            else:
-                text = "🧾 *Lista finala de cumparat:*\n\n"
-                for nume, cant, unit in lista_finala:
-                    text += f"• {nume} — *{round(cant, 2)} {unit}*\n"
-                text += "\n_Calculata din diferenta dintre ce doresti si ce ai acasa._"
+            text = "🔍 *Produse ramase de cumparat:*\n\n"
+            butoane = []
+            for up, prod, cant in produse_ramase:
+                text += f"• {prod.name} — {round(cant, 2)} {prod.unit}\n"
+                butoane.append([InlineKeyboardButton(
+                    f"🛒 {prod.name} in cos",
+                    callback_data=f"cos_adauga_{up.id}"
+                )])
 
-            butoane = [
-                [InlineKeyboardButton("🔙 Inapoi la lista dorita", callback_data="dorita_inapoi")],
-                [InlineKeyboardButton("🏠 Meniu principal", callback_data="meniu_principal")]
-            ]
-            keyboard = InlineKeyboardMarkup(butoane)
-            await query.edit_message_text(text, parse_mode="Markdown", reply_markup=keyboard)
+            text += "\n_Adauga in cos ce gasesti si finalizeaza din nou!_"
+            butoane.append([InlineKeyboardButton("🏠 Meniu principal", callback_data="meniu_principal")])
+
+            await query.edit_message_text(
+                text, parse_mode="Markdown",
+                reply_markup=InlineKeyboardMarkup(butoane)
+            )
+            
+            
 
     finally:
         db.close()

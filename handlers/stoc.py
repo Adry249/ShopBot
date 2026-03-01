@@ -73,14 +73,13 @@ async def callback_stoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "stoc_inapoi_categorii":
         db.close()
         await afiseaza_categorii_stoc_edit(query, context)
-        return
-
-    elif query.data.startswith("stoc_cat_"):
-        categorie = query.data.replace("stoc_cat_", "")
+        return#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    elif query.data.startswith("stoc_goleste_"):
+        categorie = query.data.replace("stoc_goleste_", "")
         user = db.query(User).filter_by(telegram_id=query.from_user.id).first()
         produse = db.query(Product).filter_by(category=categorie).all()
 
-        text = f"📦 *{categorie}* — Stoc acasa\n\n"
+        text = f"🗑️ *{categorie}* — Alege ce doresti sa golesti:\n\n"
         butoane = []
 
         for produs in produse:
@@ -89,22 +88,149 @@ async def callback_stoc(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 product_id=produs.id
             ).first()
             cantitate_curenta = up.quantity if up else 0
-            text += f"• {produs.name}: *{cantitate_curenta} {produs.unit}*\n"
+            if cantitate_curenta > 0:
+                selectate = context.user_data.get("goleste_selectate", [])
+                bifat = "✅" if produs.id in selectate else "⬜"
+                text += f"• {produs.name}: *{cantitate_curenta} {produs.unit}*\n"
+                butoane.append([InlineKeyboardButton(
+                    f"{bifat} {produs.name} ({cantitate_curenta} {produs.unit})",
+                    callback_data=f"stoc_toggle_{produs.id}_{categorie}"
+                )])
+
+        selectate = context.user_data.get("goleste_selectate", [])
+        if selectate:
             butoane.append([InlineKeyboardButton(
-                f"✏️ {produs.name} ({cantitate_curenta} {produs.unit})",
-                callback_data=f"stoc_edit_{produs.id}"
+                f"✅ Confirma ({len(selectate)} produse)",
+                callback_data=f"stoc_confirma_golire_{categorie}"
             )])
 
-        butoane.append([InlineKeyboardButton("🔙 Inapoi la categorii", callback_data="stoc_inapoi_categorii")])
+        butoane.append([InlineKeyboardButton("🔙 Inapoi", callback_data=f"stoc_cat_{categorie}")])
+        keyboard = InlineKeyboardMarkup(butoane)
+        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=keyboard)
 
+    elif query.data.startswith("stoc_toggle_"):
+        parti = query.data.replace("stoc_toggle_", "").split("_")
+        product_id = int(parti[0])
+        categorie = "_".join(parti[1:])
+
+        selectate = context.user_data.get("goleste_selectate", [])
+        if product_id in selectate:
+            selectate.remove(product_id)
+        else:
+            selectate.append(product_id)
+        context.user_data["goleste_selectate"] = selectate
+
+        user = db.query(User).filter_by(telegram_id=query.from_user.id).first()
+        produse = db.query(Product).filter_by(category=categorie).all()
+
+        text = f"🗑️ *{categorie}* — Alege ce doresti sa golesti:\n\n"
+        butoane = []
+
+        for produs in produse:
+            up = db.query(UserProduct).filter_by(
+                user_id=user.id if user else 0,
+                product_id=produs.id
+            ).first()
+            cantitate_curenta = up.quantity if up else 0
+            if cantitate_curenta > 0:
+                bifat = "✅" if produs.id in selectate else "⬜"
+                text += f"• {produs.name}: *{cantitate_curenta} {produs.unit}*\n"
+                butoane.append([InlineKeyboardButton(
+                    f"{bifat} {produs.name} ({cantitate_curenta} {produs.unit})",
+                    callback_data=f"stoc_toggle_{produs.id}_{categorie}"
+                )])
+
+        if selectate:
+            butoane.append([InlineKeyboardButton(
+                f"✅ Confirma ({len(selectate)} produse)",
+                callback_data=f"stoc_confirma_golire_{categorie}"
+            )])
+
+        butoane.append([InlineKeyboardButton("🔙 Inapoi", callback_data=f"stoc_cat_{categorie}")])
+        keyboard = InlineKeyboardMarkup(butoane)
+        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=keyboard)
+
+    elif query.data.startswith("stoc_confirma_golire_"):
+        categorie = query.data.replace("stoc_confirma_golire_", "")
+        user = db.query(User).filter_by(telegram_id=query.from_user.id).first()
+        selectate = context.user_data.get("goleste_selectate", [])
+
+        text = f"✅ *Produse golite din {categorie}:*\n\n"
+        for product_id in selectate:
+            up = db.query(UserProduct).filter_by(
+                user_id=user.id,
+                product_id=product_id
+            ).first()
+            produs = db.query(Product).filter_by(id=product_id).first()
+            if up:
+                up.quantity = 0
+                text += f"• {produs.name} — pus pe 0\n"
+
+        db.commit()
+        context.user_data["goleste_selectate"] = []
+
+        butoane = [
+            [InlineKeyboardButton("🔙 Inapoi la categorie", callback_data=f"stoc_cat_{categorie}")],
+            [InlineKeyboardButton("🔙 Inapoi la categorii", callback_data="stoc_inapoi_categorii")],
+        ]
         if context.user_data.get("din_lista"):
             butoane.append([InlineKeyboardButton(
                 "✅ Gata, mergi la lista de cumparaturi",
                 callback_data="stoc_gata"
             )])
 
-        keyboard = InlineKeyboardMarkup(butoane)
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=keyboard)
+        await query.edit_message_text(
+            text, parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(butoane)
+        )
+
+        db.close()
+    
+
+#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    elif query.data.startswith("stoc_cat_"):
+            categorie = query.data.replace("stoc_cat_", "")
+            user = db.query(User).filter_by(telegram_id=query.from_user.id).first()
+            produse = db.query(Product).filter_by(category=categorie).all()
+
+            text = f"📦 *{categorie}* — Stoc acasa\n\n"
+            butoane = []
+
+            # Verificam daca sunt produse cu cantitate > 0
+            are_produse_cu_stoc = False
+
+            for produs in produse:
+                up = db.query(UserProduct).filter_by(
+                    user_id=user.id if user else 0,
+                    product_id=produs.id
+                ).first()
+                cantitate_curenta = up.quantity if up else 0
+                if cantitate_curenta > 0:
+                    are_produse_cu_stoc = True
+                text += f"• {produs.name}: *{cantitate_curenta} {produs.unit}*\n"
+                butoane.append([InlineKeyboardButton(
+                    f"✏️ {produs.name} ({cantitate_curenta} {produs.unit})",
+                    callback_data=f"stoc_edit_{produs.id}"
+                )])
+
+            # Buton golire doar daca sunt produse cu cantitate > 0
+            if are_produse_cu_stoc:
+                butoane.append([InlineKeyboardButton(
+                    "🗑️ Goleste produse din aceasta categorie",
+                    callback_data=f"stoc_goleste_{categorie}"
+                )])
+
+            butoane.append([InlineKeyboardButton("🔙 Inapoi la categorii", callback_data="stoc_inapoi_categorii")])
+
+            if context.user_data.get("din_lista"):
+                butoane.append([InlineKeyboardButton(
+                    "✅ Gata, mergi la lista de cumparaturi",
+                    callback_data="stoc_gata"
+                )])
+
+            keyboard = InlineKeyboardMarkup(butoane)
+            await query.edit_message_text(text, parse_mode="Markdown", reply_markup=keyboard)
+            
 
     elif query.data.startswith("stoc_edit_"):
         product_id = int(query.data.replace("stoc_edit_", ""))

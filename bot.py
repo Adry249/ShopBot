@@ -79,7 +79,7 @@ async def router_text(update, context):
                 parse_mode="Markdown"
             )
         except ValueError:
-            await update.message.reply_text("❌ Scrie un numar valid, ex: 3000.")
+            await update.message.reply_text("❌ Scrie un numar valid, ex: 3000")
         return
 
     if "stoc_product_id" in context.user_data:
@@ -90,7 +90,7 @@ async def router_text(update, context):
 async def router_callback(update, context):
     data = update.callback_query.data
 
-    stoc_prefixes = ["stoc_cat_", "stoc_edit_", "stoc_inapoi", "stoc_gata"]
+    stoc_prefixes = ["stoc_cat_", "stoc_edit_", "stoc_inapoi", "stoc_gata", "stoc_goleste_", "stoc_toggle_", "stoc_confirma_golire_"]
     if any(data.startswith(p) for p in stoc_prefixes):
         await callback_stoc(update, context)
     elif data == "meniu_principal":
