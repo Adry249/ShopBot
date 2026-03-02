@@ -1,3 +1,6 @@
+# py -m uvicorn api:app --reload --port 8000
+# .\ngrok.exe http 8000
+
 import logging
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters
