@@ -2,6 +2,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKe
 from telegram.ext import ContextTypes, ConversationHandler, CommandHandler, MessageHandler, filters
 from database import SessionLocal
 from models.user import User
+from telegram import WebAppInfo
 
 SALARY_DATE, BUDGET = range(2)
 
@@ -19,6 +20,8 @@ def get_reply_keyboard():
 # Meniu principal inline
 async def afiseaza_meniu(update_or_message, edit=False):
     butoane = [
+        [InlineKeyboardButton("👾 Deschide Mini App",
+        web_app=WebAppInfo(url="https://adry249.github.io/ShopBot/"))],
         [InlineKeyboardButton("🛒 Lista de cumparaturi", callback_data="meniu_lista")],
         [InlineKeyboardButton("📦 Stoc de acasa", callback_data="meniu_stoc_direct")],
         [InlineKeyboardButton("💰 Buget lunar", callback_data="meniu_buget")],

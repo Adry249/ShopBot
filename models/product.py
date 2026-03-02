@@ -9,7 +9,7 @@ class Product(Base):
     name = Column(String(200), nullable=False)
     category = Column(String(100))
     unit = Column(String(50))
-    avg_price = Column(Float, default=0)  # NOU — pret mediu estimat
+    avg_price = Column(Float, default=0) 
 
 
 class UserProduct(Base):
