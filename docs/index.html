@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShopBot Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Navigare jos -->
+    <nav class="bottom-nav">
+        <button class="nav-btn active" onclick="arataPagina('dashboard')">
+            🏠<span>Acasă</span>
+        </button>
+        <button class="nav-btn" onclick="arataPagina('lista')">
+            🛒<span>Listă</span>
+        </button>
+        <button class="nav-btn" onclick="arataPagina('stoc')">
+            📦<span>Stoc</span>
+        </button>
+        <button class="nav-btn" onclick="arataPagina('buget')">
+            💰<span>Buget</span>
+        </button>
+    </nav>
+
+    <!-- Pagina Dashboard -->
+    <div id="pagina-dashboard" class="pagina activa">
+        <div class="header">
+            <h1>🛒 ShopBot</h1>
+            <p id="salut-user">Bună ziua!</p>
+        </div>
+
+        <div class="card">
+            <h3>💰 Buget lunar</h3>
+            <div class="bara-progres-container">
+                <div class="bara-progres" id="bara-buget"></div>
+            </div>
+            <div class="buget-info">
+                <span>Cheltuit: <b id="cheltuit-sum">0 lei</b></span>
+                <span>Rămas: <b id="ramas-sum">0 lei</b></span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>⚠️ Produse pe terminate</h3>
+            <div id="produse-critice">
+                <p class="loading">Se încarcă...</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>🛒 De cumpărat azi</h3>
+            <div id="de-cumparat-azi">
+                <p class="loading">Se încarcă...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagina Listă -->
+    <div id="pagina-lista" class="pagina">
+        <div class="header">
+            <h1>🛒 Listă cumpărături</h1>
+        </div>
+        <div id="lista-continut">
+            <p class="loading">Se încarcă...</p>
+        </div>
+    </div>
+
+    <!-- Pagina Stoc -->
+    <div id="pagina-stoc" class="pagina">
+        <div class="header">
+            <h1>📦 Stoc de acasă</h1>
+        </div>
+        <div id="stoc-continut">
+            <p class="loading">Se încarcă...</p>
+        </div>
+    </div>
+
+    <!-- Pagina Buget -->
+    <div id="pagina-buget" class="pagina">
+        <div class="header">
+            <h1>💰 Buget lunar</h1>
+        </div>
+        <div id="buget-continut">
+            <p class="loading">Se încarcă...</p>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
