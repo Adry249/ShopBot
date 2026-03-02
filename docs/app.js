@@ -29,7 +29,11 @@ function arataPagina(numePagina) {
 // ── Apel API helper ──────────────────────────────────────────────────────────
 async function apelAPI(endpoint) {
     try {
-        const raspuns = await fetch(`${API_URL}${endpoint}?telegram_id=${telegramId}`);
+        const raspuns = await fetch(`${API_URL}${endpoint}?telegram_id=${telegramId}`, {
+            headers: {
+                "ngrok-skip-browser-warning": "true"
+            }
+        });
         if (!raspuns.ok) throw new Error('Eroare API');
         return await raspuns.json();
     } catch (err) {
