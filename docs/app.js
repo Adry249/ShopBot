@@ -4,7 +4,7 @@ tg.ready();
 tg.expand();
 
 // URL-ul API-ului tău local (îl schimbi când deployezi)
-const API_URL = "http://localhost:8000";
+const API_URL = "https://sarmentose-dawn-prebronchial.ngrok-free.dev";
 
 // Telegram ID-ul utilizatorului curent
 const telegramId = tg.initDataUnsafe?.user?.id || null;
