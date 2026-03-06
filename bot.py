@@ -1,16 +1,18 @@
-# py -m uvicorn api:app --reload --port 8000
-# .\ngrok.exe http 8000
+# API:     py -m uvicorn api:app --reload --port 8000
+# Tunel:   .\ngrok.exe http 8000
 
 import logging
-from telegram import Update
+import os
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 from dotenv import load_dotenv
-from handlers.start import get_conversation_handler, afiseaza_meniu, get_reply_keyboard
+
+from handlers.start import get_conversation_handler, afiseaza_meniu
 from handlers.lista import lista, callback_lista, primeste_cantitate
 from handlers.stoc import stoc, callback_stoc, primeste_cantitate_stoc
+from handlers.buget import buget_command, callback_buget, afiseaza_meniu_buget, afiseaza_raport_lunar
 from scheduler import porneste_scheduler
-from handlers.buget import buget_command, callback_buget
-import os
+from database import SessionLocal
+from models.user import User
 
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -20,41 +22,25 @@ logging.basicConfig(
     level=logging.INFO
 )
 
+
+# ── Comanda /ajutor ───────────────────────────────────────────────────────────
 async def ajutor(update, context):
     await update.message.reply_text(
         "❓ *Ajutor ShopBot*\n\n"
-        "🛒 *Lista* — seteaza cantitatile dorite si vezi ce trebuie sa cumperi\n"
-        "📦 *Stoc* — actualizeaza ce ai acasa in prezent\n"
-        "💰 *Buget* — seteaza bugetul lunar pentru cumparaturi\n"
+        "🛒 *Lista* — setează cantitățile dorite și vezi ce trebuie să cumperi\n"
+        "📦 *Stoc* — actualizează ce ai acasă în prezent\n"
+        "💰 *Buget* — setează bugetul lunar pentru cumpărături\n"
         "🏠 *Meniu* — revino la meniul principal\n\n"
-        "Foloseste butoanele de jos pentru navigare rapida!",
+        "Folosește butoanele de jos pentru navigare rapidă!",
         parse_mode="Markdown"
     )
 
-async def buget(update, context):
-    await buget_command(update, context)
-    # from database import SessionLocal
-    from models.user import User
-    db = SessionLocal()
-    user = db.query(User).filter_by(telegram_id=update.effective_user.id).first()
-    db.close()
 
-    if not user:
-        await update.message.reply_text("❌ Nu esti inregistrat. Trimite /start.")
-        return
-
-    await update.message.reply_text(
-        f"💰 *Bugetul tau lunar*\n\n"
-        f"Buget curent: *{user.monthly_budget} lei*\n\n"
-        f"Scrie noul buget in lei (ex: 3000) sau /skip pentru a pastra cel actual:",
-        parse_mode="Markdown"
-    )
-    context.user_data["asteapta_buget"] = True
-
+# ── Router pentru mesaje text (butoane tastatura + cantitati) ─────────────────
 async def router_text(update, context):
     text = update.message.text.strip()
 
-    # Butoanele de jos de la tastatura
+    # Butoanele persistente de jos
     if text == "🏠 Meniu":
         await afiseaza_meniu(update.message)
         return
@@ -68,10 +54,8 @@ async def router_text(update, context):
         await buget_command(update, context)
         return
 
-    # Cantitati
+    # Actualizare buget (dupa apasarea "Schimba bugetul")
     if "asteapta_buget" in context.user_data:
-        from database import SessionLocal
-        from models.user import User
         try:
             suma = int(text)
             db = SessionLocal()
@@ -85,147 +69,142 @@ async def router_text(update, context):
                 parse_mode="Markdown"
             )
         except ValueError:
-            await update.message.reply_text("❌ Scrie un numar valid, ex: 3000")
+            await update.message.reply_text("❌ Scrie un număr valid, ex: 3000")
         return
 
+    # Cantitati stoc sau lista dorita
     if "stoc_product_id" in context.user_data:
         await primeste_cantitate_stoc(update, context)
     elif "dorita_product_id" in context.user_data:
         await primeste_cantitate(update, context)
 
+
+# ── Router pentru toate callback-urile (butoane inline) ───────────────────────
 async def router_callback(update, context):
     data = update.callback_query.data
 
-    stoc_prefixes = ["stoc_cat_", "stoc_edit_", "stoc_inapoi", "stoc_gata", "stoc_goleste_", "stoc_toggle_", "stoc_confirma_golire_"]
+    # Callback-uri pentru stoc
+    stoc_prefixes = [
+        "stoc_cat_", "stoc_edit_", "stoc_inapoi",
+        "stoc_gata", "stoc_goleste_", "stoc_toggle_", "stoc_confirma_golire_"
+    ]
     if any(data.startswith(p) for p in stoc_prefixes):
         await callback_stoc(update, context)
+
+    # Meniu principal
     elif data == "meniu_principal":
         await update.callback_query.answer()
         await afiseaza_meniu(update.callback_query, edit=True)
+
+    # Lista de cumparaturi
     elif data == "meniu_lista":
         await update.callback_query.answer()
         await lista_din_meniu(update, context)
+
+    # Stoc direct din meniu
     elif data == "meniu_stoc_direct":
         await update.callback_query.answer()
         context.user_data["din_lista"] = False
         await stoc_din_meniu(update, context)
+
+    # Buget din meniu
     elif data == "meniu_buget":
         await update.callback_query.answer()
-        from database import SessionLocal
-        from models.user import User
-        from handlers.buget import afiseaza_meniu_buget
         db = SessionLocal()
         user = db.query(User).filter_by(telegram_id=update.callback_query.from_user.id).first()
         db.close()
         await afiseaza_meniu_buget(update.callback_query, user, edit=True)
-    elif data.startswith("buget_") or data == "buget_raport_direct":
-        if data == "buget_raport_direct":
-            # Redirect catre raport direct din ecranul de finalizare
-            from handlers.buget import afiseaza_raport_lunar
-            from database import SessionLocal
-            from models.user import User
-            db = SessionLocal()
-            user = db.query(User).filter_by(
-                telegram_id=update.callback_query.from_user.id
-            ).first()
-            db.close()
-            await update.callback_query.answer()
-            await afiseaza_raport_lunar(update.callback_query, user)
-        else:
-            await callback_buget(update, context)
+
+    # Raport buget direct din ecranul de finalizare cumparaturi
+    elif data == "buget_raport_direct":
+        await update.callback_query.answer()
+        db = SessionLocal()
+        user = db.query(User).filter_by(telegram_id=update.callback_query.from_user.id).first()
+        db.close()
+        await afiseaza_raport_lunar(update.callback_query, user)
+
+    # Toate celelalte callback-uri buget
+    elif data.startswith("buget_"):
+        await callback_buget(update, context)
+
+    # Ajutor
     elif data == "meniu_ajutor":
+        from telegram import InlineKeyboardMarkup, InlineKeyboardButton
         await update.callback_query.answer()
         await update.callback_query.edit_message_text(
             "❓ *Ajutor ShopBot*\n\n"
-            "/lista *Lista* — seteaza cantitatile dorite si vezi ce trebuie sa cumperi\n"
-            "/stoc *Stoc* — actualizeaza ce ai acasa in prezent\n"
-            "/buget *Buget* — seteaza bugetul lunar pentru cumparaturi\n\n"
-            "Foloseste butoanele de jos pentru navigare rapida!",
+            "🛒 *Lista* — setează cantitățile dorite și vezi ce trebuie să cumperi\n"
+            "📦 *Stoc* — actualizează ce ai acasă în prezent\n"
+            "💰 *Buget* — setează bugetul lunar pentru cumpărături\n\n"
+            "Folosește butoanele de jos pentru navigare rapidă!",
             parse_mode="Markdown",
-            reply_markup=__import__('telegram').InlineKeyboardMarkup([
-                [__import__('telegram').InlineKeyboardButton("🔙 Inapoi", callback_data="meniu_principal")]
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔙 Înapoi", callback_data="meniu_principal")]
             ])
         )
+
+    # Toate celelalte callback-uri lista
     else:
         await callback_lista(update, context)
 
+
+# ── Ecran intermediar: ai actualizat stocul? (din meniu → lista) ──────────────
 async def lista_din_meniu(update, context):
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
     query = update.callback_query
-    butoane = [
-        [InlineKeyboardButton("✅ Da, continua la lista", callback_data="stoc_actualizat_da")],
-        [InlineKeyboardButton("❌ Nu, mergi la stoc", callback_data="stoc_actualizat_nu")],
-        [InlineKeyboardButton("🏠 Meniu principal", callback_data="meniu_principal")],
-    ]
-    keyboard = InlineKeyboardMarkup(butoane)
     await query.edit_message_text(
-        "📦 *Inainte de lista de cumparaturi...*\n\n"
-        "Ai actualizat stocul de acasa?",
-        reply_markup=keyboard,
+        "📦 *Înainte de lista de cumpărături...*\n\n"
+        "Ai actualizat stocul de acasă?",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("✅ Da, continuă la listă", callback_data="stoc_actualizat_da")],
+            [InlineKeyboardButton("❌ Nu, mergi la stoc", callback_data="stoc_actualizat_nu")],
+            [InlineKeyboardButton("🏠 Meniu principal", callback_data="meniu_principal")],
+        ]),
         parse_mode="Markdown"
     )
 
+
+# ── Afisare stoc din meniu principal ─────────────────────────────────────────
 async def stoc_din_meniu(update, context):
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-    from database import SessionLocal
     from models.product import Product
     query = update.callback_query
     db = SessionLocal()
-    categorii = db.query(Product.category).distinct().all()
-    categorii = [c[0] for c in categorii]
+    categorii = [c[0] for c in db.query(Product.category).distinct().all()]
     db.close()
 
-    butoane = []
-    for categorie in categorii:
-        butoane.append([InlineKeyboardButton(f"📦 {categorie}", callback_data=f"stoc_cat_{categorie}")])
+    butoane = [[InlineKeyboardButton(f"📦 {cat}", callback_data=f"stoc_cat_{cat}")]
+               for cat in categorii]
     butoane.append([InlineKeyboardButton("🏠 Meniu principal", callback_data="meniu_principal")])
 
-    keyboard = InlineKeyboardMarkup(butoane)
     await query.edit_message_text(
-        "📦 *Stocul de acasa*\n\nAlege o categorie:",
-        reply_markup=keyboard,
+        "📦 *Stocul de acasă*\n\nAlege o categorie:",
+        reply_markup=InlineKeyboardMarkup(butoane),
         parse_mode="Markdown"
     )
 
-async def buget_inline(update, context):
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-    from database import SessionLocal
-    from models.user import User
-    query = update.callback_query
-    db = SessionLocal()
-    user = db.query(User).filter_by(telegram_id=query.from_user.id).first()
-    db.close()
 
-    buget_curent = user.monthly_budget if user else 0
-    await query.edit_message_text(
-        f"💰 *Bugetul tau lunar*\n\n"
-        f"Buget curent: *{buget_curent} lei*\n\n"
-        f"Scrie noul buget in chat (ex: 3000):",
-        parse_mode="Markdown",
-        reply_markup=__import__('telegram').InlineKeyboardMarkup([
-            [__import__('telegram').InlineKeyboardButton("🔙 Inapoi", callback_data="meniu_principal")]
-        ])
-    )
-    context.user_data["asteapta_buget"] = True
-
+# ── Configurare si pornire bot ────────────────────────────────────────────────
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
+    # ConversationHandler primul — gestioneaza inregistrarea
     app.add_handler(get_conversation_handler())
     app.add_handler(CommandHandler("ajutor", ajutor))
     app.add_handler(CommandHandler("lista", lista))
     app.add_handler(CommandHandler("stoc", stoc))
-    app.add_handler(CommandHandler("buget", buget))
+    app.add_handler(CommandHandler("buget", buget_command))
     app.add_handler(CallbackQueryHandler(router_callback))
+    # MessageHandler ultimul — prinde tot textul netratat
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, router_text))
 
     async def post_init(application):
         porneste_scheduler(application.bot)
 
     app.post_init = post_init
-    print("✅ ShopBot pornit cu notificari automate! Apasa Ctrl+C pentru a opri.")
-
+    print("✅ ShopBot pornit cu notificări automate! Apasă Ctrl+C pentru a opri.")
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
