@@ -4,7 +4,7 @@
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 
-const API = "https://sarmentose-dawn-prebronchial.ngrok-free.dev";
+const API = "https://NGROK_URL_HERE"; // ← înlocuiește cu URL-ul ngrok
 
 // TG_ID — dacă nu e deschis din Telegram, folosim ID-ul de test din seed.py
 const TG_ID = tg?.initDataUnsafe?.user?.id || 123456789;
@@ -16,8 +16,8 @@ let state = {
   lista: null,
   stoc: null,
   raport: null,
-  cosul: {},
-  stocEditat: {},
+  cosul: {},          // product_id -> {in_cart: bool, up_id}
+  stocEditat: {},     // product_id -> cantitate
   listaCatActiva: null,
   stocCatActiva: null,
 };
@@ -335,7 +335,7 @@ async function deschideAdaugaInLista() {
                 </div>
                 ${eInLista
                   ? `<span class="badge badge-ok">✓ În listă</span>`
-                  : `<button class="btn btn-primary btn-sm" onclick="adaugaProdusPtLista(${p.id},'${p.name}','${p.unit}')">+ Adaugă</button>`
+                  : `<button class="btn btn-primary btn-sm" data-add-id="${p.id}" onclick="adaugaProdusPtLista(${p.id},'${p.name}','${p.unit}')">+ Adaugă</button>`
                 }
               </div>`;
             }).join('')}
@@ -364,33 +364,43 @@ function filtreazaProduse() {
 }
 
 function adaugaProdusPtLista(productId, name, unit) {
-  openSheet(`
-    <div class="sheet-title">+ ${name}</div>
-    <p class="text-muted">Câte ${unit} dorești să ai acasă?</p>
-    <div style="margin:20px 0">
-      <div class="stepper" style="justify-content:center">
-        <button class="stepper-btn" onclick="stepVal('add-dorita-val',-0.5,0.5,999)">−</button>
-        <div class="stepper-val">
-          <input id="add-dorita-val" type="number" min="0.5" step="0.5" value="1"
-            style="width:70px;text-align:center;background:transparent;border:none;color:var(--text);
-                   font-family:Syne,sans-serif;font-size:22px;font-weight:700;outline:none">
-        </div>
-        <button class="stepper-btn" onclick="stepVal('add-dorita-val',0.5,0.5,999)">+</button>
-      </div>
-      <div class="text-muted text-center mt8">${unit}</div>
-    </div>
-    <button class="btn btn-primary" onclick="confirmaAdaugaInLista(${productId})">✅ Adaugă în listă</button>
-    <button class="btn btn-secondary mt8" onclick="deschideAdaugaInLista()">🔙 Înapoi</button>
-  `);
+  // Afișează un input inline în sheet, fără a deschide un sheet nou
+  const btn = document.querySelector(`[data-add-id="${productId}"]`);
+  if (!btn) return;
+
+  // Înlocuiește butonul cu un mini-stepper inline
+  btn.outerHTML = `
+    <div class="inline-add" data-add-id="${productId}" style="display:flex;align-items:center;gap:6px">
+      <button class="stepper-btn" style="width:26px;height:26px;font-size:15px"
+              onclick="stepInline(${productId},-0.5)">−</button>
+      <input id="inline-val-${productId}" type="number" value="1" min="0.5" step="0.5"
+             style="width:42px;text-align:center;background:var(--bg3);border:1px solid var(--border);
+                    border-radius:6px;color:var(--text);font-size:13px;font-weight:700;padding:4px;outline:none">
+      <button class="stepper-btn" style="width:26px;height:26px;font-size:15px"
+              onclick="stepInline(${productId},0.5)">+</button>
+      <button class="btn btn-primary btn-sm"
+              onclick="confirmaAdaugaInLista(${productId},'${unit}')">✅</button>
+    </div>`;
 }
 
-async function confirmaAdaugaInLista(productId) {
-  const val = parseFloat(document.getElementById("add-dorita-val").value) || 1;
+function stepInline(productId, delta) {
+  const inp = document.getElementById(`inline-val-${productId}`);
+  if (!inp) return;
+  const v = Math.max(0.5, Math.min(999, parseFloat(inp.value || 1) + delta));
+  inp.value = Math.round(v * 10) / 10;
+}
+
+async function confirmaAdaugaInLista(productId, unit) {
+  const inp = document.getElementById(`inline-val-${productId}`);
+  const val = parseFloat(inp?.value) || 1;
   const res = await apiPost("/api/dorita", { product_id: productId, quantity: val });
   if (res && res.ok) {
-    toast("Produs adăugat în listă ✅", "success");
-    closeSheet();
+    // Înlocuiește stepperul inline cu badge "✓ În listă" — rămânem în sheet
+    const wrap = document.querySelector(`.inline-add[data-add-id="${productId}"]`);
+    if (wrap) wrap.outerHTML = `<span class="badge badge-ok">✓ ${val} ${unit}</span>`;
+    // Actualizează lista în background
     incarcaLista();
+    toast("Adăugat ✅", "success");
   } else {
     toast("Eroare la adăugare", "error");
   }
@@ -492,7 +502,8 @@ function renderStocProduse() {
                 </svg>
                 <div>
                   <div class="item-name">${p.name}</div>
-                  <div class="item-sub">${p.stoc} / ${p.desired} ${p.unit}</div>
+                  <div class="item-sub">${p.stoc} ${p.unit} în stoc</div>
+                  <div class="item-sub">dorit: ${p.desired} ${p.unit}</div>
                 </div>
               </div>
               <button class="btn btn-sm btn-secondary"

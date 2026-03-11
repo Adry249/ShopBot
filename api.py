@@ -66,7 +66,7 @@ def dashboard(telegram_id: int):
     db.close()
     return {
         "nume":            user.username or "Utilizator",
-        "salary_day":      user.salary_date,
+        "salary_date":     user.salary_date,
         "buget_total":     user.monthly_budget or 0,
         "cheltuit":        round(cheltuit),
         "produse_critice": produse_critice,
