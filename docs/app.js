@@ -4,7 +4,7 @@
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 
-const API = "https://NGROK_URL_HEREhttps://sarmentose-dawn-prebronchial.ngrok-free.dev";
+const API = "https://sarmentose-dawn-prebronchial.ngrok-free.dev";
 // TG_ID — dacă nu e deschis din Telegram, folosim ID-ul de test din seed.py
 const TG_ID = tg?.initDataUnsafe?.user?.id || 123456789;
 
