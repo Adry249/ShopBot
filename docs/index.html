@@ -1,93 +1,170 @@
 <!DOCTYPE html>
 <html lang="ro">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ShopBot Mini App</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ShopBot</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
+<!-- ═══ TOAST ═══ -->
+<div class="toast" id="toast"></div>
 
-    <!-- Navigare jos -->
-    <nav class="bottom-nav">
-        <button class="nav-btn active" onclick="arataPagina('dashboard')">
-            🏠<span>Acasă</span>
-        </button>
-        <button class="nav-btn" onclick="arataPagina('lista')">
-            🛒<span>Listă</span>
-        </button>
-        <button class="nav-btn" onclick="arataPagina('stoc')">
-            📦<span>Stoc</span>
-        </button>
-        <button class="nav-btn" onclick="arataPagina('buget')">
-            💰<span>Buget</span>
-        </button>
-    </nav>
+<!-- ═══ OVERLAY + SHEET ═══ -->
+<div class="overlay" id="overlay" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div id="sheet-content"></div>
+</div>
 
-    <!-- Pagina Dashboard -->
-    <div id="pagina-dashboard" class="pagina activa">
-        <div class="header">
-            <h1>🛒 ShopBot</h1>
-            <p id="salut-user">Bună ziua!</p>
-        </div>
+<!-- ══════════════════════════════════════════
+     PAGINA: ACASĂ (DASHBOARD)
+══════════════════════════════════════════ -->
+<div class="page active" id="page-home">
+  <div class="page-header">
+    <h2>ShopBot 🛒</h2>
+    <div class="header-pill" id="date-pill"></div>
+  </div>
 
-        <div class="card">
-            <h3>💰 Buget lunar</h3>
-            <div class="bara-progres-container">
-                <div class="bara-progres" id="bara-buget"></div>
-            </div>
-            <div class="buget-info">
-                <span>Cheltuit: <b id="cheltuit-sum">0 lei</b></span>
-                <span>Rămas: <b id="ramas-sum">0 lei</b></span>
-            </div>
-        </div>
-
-        <div class="card">
-            <h3>⚠️ Produse pe terminate</h3>
-            <div id="produse-critice">
-                <p class="loading">Se încarcă...</p>
-            </div>
-        </div>
-
-        <div class="card">
-            <h3>🛒 De cumpărat azi</h3>
-            <div id="de-cumparat-azi">
-                <p class="loading">Se încarcă...</p>
-            </div>
-        </div>
+  <!-- Hero card cu info user -->
+  <div class="hero" id="hero-card">
+    <div class="hero-greeting">Bună ziua,</div>
+    <div class="hero-name" id="hero-name">
+      <span class="skel skel-line" style="width:140px;display:inline-block"></span>
     </div>
-
-    <!-- Pagina Listă -->
-    <div id="pagina-lista" class="pagina">
-        <div class="header">
-            <h1>🛒 Listă cumpărături</h1>
-        </div>
-        <div id="lista-continut">
-            <p class="loading">Se încarcă...</p>
-        </div>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="hero-stat-label">Buget rămas</div>
+        <div class="hero-stat-val" id="hero-ramas">—</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-label">De cumpărat</div>
+        <div class="hero-stat-val" id="hero-nr-prod">—</div>
+      </div>
     </div>
+  </div>
 
-    <!-- Pagina Stoc -->
-    <div id="pagina-stoc" class="pagina">
-        <div class="header">
-            <h1>📦 Stoc de acasă</h1>
-        </div>
-        <div id="stoc-continut">
-            <p class="loading">Se încarcă...</p>
-        </div>
+  <!-- Progres buget -->
+  <div class="card" id="buget-card" style="display:none">
+    <div class="card-title">Buget lunar</div>
+    <div class="prog-wrap"><div class="prog-bar" id="dash-prog" style="width:0%"></div></div>
+    <div class="prog-labels">
+      <span id="dash-cheltuit">0 lei cheltuiți</span>
+      <span id="dash-total">din 0 lei</span>
     </div>
+  </div>
 
-    <!-- Pagina Buget -->
-    <div id="pagina-buget" class="pagina">
-        <div class="header">
-            <h1>💰 Buget lunar</h1>
-        </div>
-        <div id="buget-continut">
-            <p class="loading">Se încarcă...</p>
-        </div>
+  <!-- Alerte critice -->
+  <div id="alerte-section" style="display:none">
+    <div class="card">
+      <div class="card-title">⚠️ Atenție necesară</div>
+      <div id="alerte-list"></div>
     </div>
+  </div>
 
-    <script src="app.js"></script>
+  <!-- Acțiuni rapide -->
+  <div class="card">
+    <div class="card-title">Acțiuni rapide</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px">
+      <button class="btn btn-primary" onclick="navTo('lista')">🛒 Listă</button>
+      <button class="btn btn-secondary" onclick="navTo('stoc')">📦 Stoc</button>
+      <button class="btn btn-secondary" onclick="navTo('raport')">📊 Raport</button>
+      <button class="btn btn-secondary" onclick="deschideSetari()">⚙️ Setări</button>
+    </div>
+  </div>
+
+  <!-- Top produse de cumparat -->
+  <div class="card" id="top-cumparaturi" style="display:none">
+    <div class="card-title">De cumpărat</div>
+    <div id="top-list"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGINA: LISTĂ CUMPĂRĂTURI
+══════════════════════════════════════════ -->
+<div class="page" id="page-lista">
+  <div class="page-header">
+    <h2>Listă 🛒</h2>
+    <div class="header-pill" id="lista-count-pill">0 produse</div>
+  </div>
+
+  <div class="tabs-wrap" id="lista-tabs"></div>
+
+  <div id="lista-content">
+    <div class="skel skel-card"></div>
+    <div class="skel skel-card"></div>
+  </div>
+
+  <!-- Buton finalizare -->
+  <div id="lista-footer" style="display:none; padding: 0 14px">
+    <div class="card" style="margin:0 0 12px; padding:14px">
+      <div class="stat-row" style="border:none;padding:0">
+        <span class="stat-label">Total estimat:</span>
+        <span class="stat-val text-success" id="lista-total">0 lei</span>
+      </div>
+    </div>
+    <button class="btn btn-success" id="btn-finalizeaza" onclick="finalizeazaCumparaturi()">
+      🏁 Finalizează cumpărăturile
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGINA: STOC
+══════════════════════════════════════════ -->
+<div class="page" id="page-stoc">
+  <div class="page-header">
+    <h2>Stoc 📦</h2>
+    <button class="btn btn-secondary btn-sm" onclick="deschideAdaugaStoc()">+ Adaugă</button>
+  </div>
+
+  <div class="tabs-wrap" id="stoc-tabs"></div>
+
+  <div id="stoc-content">
+    <div class="skel skel-card"></div>
+    <div class="skel skel-card"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGINA: RAPORT
+══════════════════════════════════════════ -->
+<div class="page" id="page-raport">
+  <div class="page-header">
+    <h2>Raport 📊</h2>
+    <div class="header-pill" id="raport-luna-pill"></div>
+  </div>
+
+  <div id="raport-content">
+    <div class="skel skel-card"></div>
+    <div class="skel skel-card"></div>
+  </div>
+</div>
+
+<!-- ═══ NAV ═══ -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="nav-home" onclick="navTo('home')">
+    <div class="nav-icon">🏠</div>
+    <span>Acasă</span>
+  </button>
+  <button class="nav-btn" id="nav-lista" onclick="navTo('lista')">
+    <div class="nav-icon">🛒</div>
+    <span>Listă</span>
+  </button>
+  <button class="nav-btn" id="nav-stoc" onclick="navTo('stoc')">
+    <div class="nav-icon">📦</div>
+    <span>Stoc</span>
+  </button>
+  <button class="nav-btn" id="nav-raport" onclick="navTo('raport')">
+    <div class="nav-icon">📊</div>
+    <span>Raport</span>
+  </button>
+</nav>
+
+<script src="app.js"></script>
 </body>
 </html>
