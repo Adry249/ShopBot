@@ -4,8 +4,7 @@
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 
-const API = "https://NGROK_URL_HERE"; // ← înlocuiește cu URL-ul ngrok
-
+const API = "https://NGROK_URL_HEREhttps://sarmentose-dawn-prebronchial.ngrok-free.dev";
 // TG_ID — dacă nu e deschis din Telegram, folosim ID-ul de test din seed.py
 const TG_ID = tg?.initDataUnsafe?.user?.id || 123456789;
 
@@ -16,8 +15,8 @@ let state = {
   lista: null,
   stoc: null,
   raport: null,
-  cosul: {},          // product_id -> {in_cart: bool, up_id}
-  stocEditat: {},     // product_id -> cantitate
+  cosul: {},         
+  stocEditat: {},   
   listaCatActiva: null,
   stocCatActiva: null,
 };
