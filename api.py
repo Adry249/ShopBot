@@ -66,7 +66,7 @@ def dashboard(telegram_id: int):
     db.close()
     return {
         "nume":            user.username or "Utilizator",
-        "salary_day":      user.salary_day,
+        "salary_day":      user.salary_date,
         "buget_total":     user.monthly_budget or 0,
         "cheltuit":        round(cheltuit),
         "produse_critice": produse_critice,
@@ -299,7 +299,7 @@ def raport(telegram_id: int):
 # ══════════════════════════════════════════════
 class SetariBody(BaseModel):
     monthly_budget: int
-    salary_day: int
+    salary_date: int
 
 @app.post("/api/setari")
 def setari(telegram_id: int, body: SetariBody):
@@ -309,12 +309,12 @@ def setari(telegram_id: int, body: SetariBody):
         db.close()
         return {"ok": False}
 
-    if not (1 <= body.salary_day <= 31):
+    if not (1 <= body.salary_date <= 31):
         db.close()
         return {"ok": False, "eroare": "Ziua salariului invalidă"}
 
     user.monthly_budget = body.monthly_budget
-    user.salary_date    = body.salary_day
+    user.salary_date    = body.salary_date
     db.commit()
     db.close()
     return {"ok": True}

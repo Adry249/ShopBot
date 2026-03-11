@@ -7,7 +7,7 @@ if (tg) { tg.ready(); tg.expand(); }
 const API = "https://sarmentose-dawn-prebronchial.ngrok-free.dev";
 
 // TG_ID — dacă nu e deschis din Telegram, folosim ID-ul de test din seed.py
-const TG_ID = tg?.initDataUnsafe?.user?.id || 999045456;
+const TG_ID = tg?.initDataUnsafe?.user?.id || 123456789;
 
 // State local
 let state = {
@@ -16,8 +16,8 @@ let state = {
   lista: null,
   stoc: null,
   raport: null,
-  cosul: {},          
-  stocEditat: {},    
+  cosul: {},
+  stocEditat: {},
   listaCatActiva: null,
   stocCatActiva: null,
 };
@@ -682,7 +682,7 @@ function deschideSetari() {
       </div>
       <div class="stat-row" style="border:none">
         <span class="stat-label">Ziua salariului</span>
-        <span class="stat-val" id="salary-day-display">${user?.salary_day || '—'}</span>
+        <span class="stat-val" id="salary-day-display">${user?.salary_date || '—'}</span>
       </div>
     </div>
 
@@ -694,7 +694,7 @@ function deschideSetari() {
     <div class="input-wrap">
       <label class="input-label">Ziua salariului (1-31)</label>
       <input class="input" id="set-salary" type="number" min="1" max="31"
-             placeholder="ex: 15" value="${user?.salary_day || ''}">
+             placeholder="ex: 15" value="${user?.salary_date || ''}">
     </div>
     <button class="btn btn-primary" onclick="salveazaSetari()">💾 Salvează</button>
     <button class="btn btn-secondary mt8" onclick="closeSheet()">Anulează</button>
@@ -709,7 +709,7 @@ async function salveazaSetari() {
     toast("Ziua salariului trebuie să fie între 1 și 31", "error"); return;
   }
 
-  const res = await apiPost("/api/setari", { monthly_budget: buget, salary_day: salary });
+  const res = await apiPost("/api/setari", { monthly_budget: buget, salary_date: salary });
   if (res && res.ok) {
     toast("Setări salvate ✅", "success");
     closeSheet();
@@ -736,7 +736,7 @@ async function salveazaBuget() {
   const buget = parseInt(document.getElementById("new-buget").value) || 0;
   const res = await apiPost("/api/setari", {
     monthly_budget: buget,
-    salary_day: state.dashboard?.salary_day || 1
+    salary_date: state.dashboard?.salary_date || 1
   });
   if (res && res.ok) {
     toast("Buget actualizat ✅", "success");
