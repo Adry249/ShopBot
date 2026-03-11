@@ -4,8 +4,10 @@
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 
-const API = "https://sarmentose-dawn-prebronchial.ngrok-free.dev"; // ← înlocuiește cu URL-ul ngrok
-const TG_ID = tg?.initDataUnsafe?.user?.id || null;
+const API = "https://sarmentose-dawn-prebronchial.ngrok-free.dev";
+
+// TG_ID — dacă nu e deschis din Telegram, folosim ID-ul de test din seed.py
+const TG_ID = tg?.initDataUnsafe?.user?.id || 999045456;
 
 // State local
 let state = {
@@ -14,8 +16,8 @@ let state = {
   lista: null,
   stoc: null,
   raport: null,
-  cosul: {},          // product_id -> {in_cart: bool, up_id}
-  stocEditat: {},     // product_id -> cantitate
+  cosul: {},          
+  stocEditat: {},    
   listaCatActiva: null,
   stocCatActiva: null,
 };
@@ -295,6 +297,102 @@ async function finalizeazaCumparaturi() {
     toast("Eroare la finalizare", "error");
     btn.textContent = "🏁 Finalizează cumpărăturile";
     btn.disabled = false;
+  }
+}
+
+/* Sheet: adaugă produs nou în listă */
+async function deschideAdaugaInLista() {
+  // Încarcă toate produsele disponibile
+  const data = await api("/api/produse");
+  if (!data) { toast("Eroare la încărcare", "error"); return; }
+
+  // Grupează pe categorii
+  const cats = [...new Set(data.produse.map(p => p.category))];
+  const produseLista = new Set(state.lista?.produse?.map(p => p.product_id) || []);
+
+  openSheet(`
+    <div class="sheet-title">+ Adaugă în listă</div>
+    <div class="input-wrap">
+      <input class="input" id="search-produs" placeholder="🔍 Caută produs..."
+             oninput="filtreazaProduse()" autocomplete="off">
+    </div>
+    <div id="produse-categorii">
+      ${cats.map(cat => {
+        const produseCat = data.produse.filter(p => p.category === cat);
+        return `
+          <div class="card-title" style="padding:10px 0 6px;margin-top:6px">${categIcon(cat)} ${cat}</div>
+          <div class="card" style="padding:8px 14px;margin:0 0 6px">
+            ${produseCat.map(p => {
+              const eInLista = produseLista.has(p.id);
+              return `
+              <div class="list-item produs-row" data-name="${p.name.toLowerCase()}" data-cat="${cat}">
+                <div class="item-left">
+                  <div class="item-icon">${categIcon(cat)}</div>
+                  <div>
+                    <div class="item-name">${p.name}</div>
+                    <div class="item-sub">${p.unit} · ~${lei(p.avg_price || 0)}/unitate</div>
+                  </div>
+                </div>
+                ${eInLista
+                  ? `<span class="badge badge-ok">✓ În listă</span>`
+                  : `<button class="btn btn-primary btn-sm" onclick="adaugaProdusPtLista(${p.id},'${p.name}','${p.unit}')">+ Adaugă</button>`
+                }
+              </div>`;
+            }).join('')}
+          </div>`;
+      }).join('')}
+    </div>
+  `);
+  // Salvăm datele pentru filtrare
+  window._toateProdusele = data.produse;
+  window._produseLista   = produseLista;
+}
+
+function filtreazaProduse() {
+  const q = document.getElementById("search-produs")?.value?.toLowerCase() || "";
+  document.querySelectorAll(".produs-row").forEach(row => {
+    const name = row.dataset.name || "";
+    row.style.display = name.includes(q) ? "" : "none";
+  });
+  // Ascunde cardurile goale
+  document.querySelectorAll("#produse-categorii .card").forEach(card => {
+    const vizibile = [...card.querySelectorAll(".produs-row")].some(r => r.style.display !== "none");
+    card.style.display = vizibile ? "" : "none";
+    const titlu = card.previousElementSibling;
+    if (titlu?.classList.contains("card-title")) titlu.style.display = vizibile ? "" : "none";
+  });
+}
+
+function adaugaProdusPtLista(productId, name, unit) {
+  openSheet(`
+    <div class="sheet-title">+ ${name}</div>
+    <p class="text-muted">Câte ${unit} dorești să ai acasă?</p>
+    <div style="margin:20px 0">
+      <div class="stepper" style="justify-content:center">
+        <button class="stepper-btn" onclick="stepVal('add-dorita-val',-0.5,0.5,999)">−</button>
+        <div class="stepper-val">
+          <input id="add-dorita-val" type="number" min="0.5" step="0.5" value="1"
+            style="width:70px;text-align:center;background:transparent;border:none;color:var(--text);
+                   font-family:Syne,sans-serif;font-size:22px;font-weight:700;outline:none">
+        </div>
+        <button class="stepper-btn" onclick="stepVal('add-dorita-val',0.5,0.5,999)">+</button>
+      </div>
+      <div class="text-muted text-center mt8">${unit}</div>
+    </div>
+    <button class="btn btn-primary" onclick="confirmaAdaugaInLista(${productId})">✅ Adaugă în listă</button>
+    <button class="btn btn-secondary mt8" onclick="deschideAdaugaInLista()">🔙 Înapoi</button>
+  `);
+}
+
+async function confirmaAdaugaInLista(productId) {
+  const val = parseFloat(document.getElementById("add-dorita-val").value) || 1;
+  const res = await apiPost("/api/dorita", { product_id: productId, quantity: val });
+  if (res && res.ok) {
+    toast("Produs adăugat în listă ✅", "success");
+    closeSheet();
+    incarcaLista();
+  } else {
+    toast("Eroare la adăugare", "error");
   }
 }
 

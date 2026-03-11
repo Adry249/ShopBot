@@ -324,3 +324,20 @@ def setari(telegram_id: int, body: SetariBody):
 @app.get("/health")
 def health():
     return {"status": "ok", "time": datetime.now().isoformat()}
+
+
+# ── Toate produsele disponibile (pentru sheet adăugare) ───────────────────────
+@app.get("/api/produse")
+def toate_produsele(telegram_id: int):
+    db = SessionLocal()
+    user = get_user(telegram_id, db)
+    produse_db = db.query(Product).order_by(Product.category, Product.name).all()
+    result = [{
+        "id":        p.id,
+        "name":      p.name,
+        "category":  p.category,
+        "unit":      p.unit,
+        "avg_price": p.avg_price or 0,
+    } for p in produse_db]
+    db.close()
+    return {"produse": result}

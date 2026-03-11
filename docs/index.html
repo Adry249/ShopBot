@@ -7,9 +7,10 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
 <!-- ═══ TOAST ═══ -->
 <div class="toast" id="toast"></div>
 
@@ -89,7 +90,10 @@
 <div class="page" id="page-lista">
   <div class="page-header">
     <h2>Listă 🛒</h2>
-    <div class="header-pill" id="lista-count-pill">0 produse</div>
+    <button class="btn btn-primary btn-sm" onclick="deschideAdaugaInLista()">+ Adaugă</button>
+  </div>
+  <div style="padding: 0 14px 4px">
+    <div class="header-pill" id="lista-count-pill" style="display:inline-block">0 produse</div>
   </div>
 
   <div class="tabs-wrap" id="lista-tabs"></div>
@@ -165,6 +169,6 @@
   </button>
 </nav>
 
-<script src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
